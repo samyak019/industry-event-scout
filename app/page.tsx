@@ -68,7 +68,7 @@ function Hero({ actionable, prefs, admin, now }: { actionable: ClassifiedEvent[]
       </div>
 
       <div className="relative lg:col-span-5">
-        <div className="glass relative overflow-hidden rounded-[2.5rem] p-5 sm:p-6">
+        <div className="glass-blur relative overflow-hidden rounded-[2.5rem] p-5 sm:p-6">
           <div className="flex items-center justify-between">
             <div className="flex gap-1.5" aria-hidden>
               <span className="h-2.5 w-2.5 rounded-full bg-white/20" />
@@ -162,7 +162,7 @@ function Bento({ all, actionable, prefs, lastRun, now }: { all: ClassifiedEvent[
         <Link href="/settings" className="mono-tag absolute bottom-6 left-6 text-lime hover:underline">Edit focus →</Link>
       </div>
 
-      <div className="noise relative overflow-hidden rounded-[2.5rem] bg-lime p-6 text-black">
+      <div className="noise-dark relative overflow-hidden rounded-[2.5rem] bg-lime p-6 text-black">
         <p className="font-mono text-[10px] font-bold uppercase tracking-[0.2em]">Deadlines &lt; 7 days</p>
         <p className="display mt-2 text-6xl font-bold">{urgent.length}</p>
         <Link href="/?urgency=urgent" className="absolute bottom-6 left-6 text-sm font-semibold underline-offset-4 hover:underline">
@@ -250,14 +250,17 @@ async function Dashboard({ searchParams }: { searchParams: SP }) {
   let prefs: Preferences;
   let all: ClassifiedEvent[] = [];
   let runs: RunRecord[] = [];
+  // Independent reads run in parallel; only the event list depends on preferences.
+  const adminPromise = isAdmin();
+  const runsPromise = store.listRuns(10).catch(() => [] as RunRecord[]);
   try {
     prefs = await store.getPreferences();
-    [all, runs] = await Promise.all([loadCurrentEvents(prefs, now), store.listRuns(10)]);
+    [all, runs] = await Promise.all([loadCurrentEvents(prefs, now), runsPromise]);
   } catch (err) {
     loadError = err instanceof Error ? err.message : "Could not load data";
     prefs = (await import("@/lib/store/defaults")).defaultPreferences();
   }
-  const admin = await isAdmin();
+  const admin = await adminPromise;
   const tz = prefs.timezone;
   const actionable = all.filter((e) => e.bucket === "actionable");
   const view = VIEWS.find((v) => v.key === (f.view ?? "")) ?? VIEWS[0];

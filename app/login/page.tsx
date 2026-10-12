@@ -8,7 +8,7 @@ async function LoginForm({ searchParams }: { searchParams: SP }) {
   const next = typeof sp.next === "string" ? sp.next : "/";
   return (
     <div className="px-5 pb-24 pt-10 sm:px-8">
-      <form action="/api/auth/login" method="post" className="glass float-anim mx-auto max-w-md space-y-5 rounded-[2.5rem] p-8">
+      <form action="/api/auth/login" method="post" className="glass-blur mx-auto max-w-md space-y-5 rounded-[2.5rem] p-8">
         <p className="mono-tag flex items-center gap-2 text-lime">
           <span className="pulse-dot" aria-hidden /> Admin access
         </p>

@@ -12,7 +12,7 @@ const LINKS = [
 export function NavPill() {
   const path = usePathname();
   return (
-    <nav aria-label="Main" className="flex items-center gap-1 rounded-full bg-white/5 p-1 ring-1 ring-white/10 backdrop-blur-[16px]">
+    <nav aria-label="Main" className="flex items-center gap-1 rounded-full glass-blur p-1">
       {LINKS.map((l) => {
         const active = l.href === "/" ? path === "/" : path.startsWith(l.href);
         return (

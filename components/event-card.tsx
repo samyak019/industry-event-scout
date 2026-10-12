@@ -26,7 +26,7 @@ export function EventCard({ e, rank, timeZone }: { e: ClassifiedEvent; rank?: nu
   const where = e.is_online ? "Online" : [e.city, e.venue && e.venue !== e.city ? e.venue : null].filter(Boolean).join(" · ") || "Location not listed";
   return (
     <article
-      className={`glass group rounded-[2rem] p-5 transition-colors duration-300 hover:border-lime/40 sm:p-6 ${e.deadline.status === "urgent" ? "border-lime/50" : ""}`}
+      className={`glass cv-auto group rounded-[2rem] p-5 transition-colors duration-300 hover:border-lime/40 sm:p-6 ${e.deadline.status === "urgent" ? "border-lime/50" : ""}`}
     >
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">

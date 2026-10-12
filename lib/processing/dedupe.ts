@@ -95,12 +95,37 @@ function mergeInto(primary: EventRecord, other: EventRecord): EventRecord {
 }
 
 export function dedupeEvents(events: EventRecord[]): EventRecord[] {
+  // Index groups by URL key and by date so each event is only compared with plausible
+  // candidates instead of every other event (O(n) lookups rather than O(n²) comparisons).
   const groups: EventRecord[][] = [];
+  const byUrl = new Map<string, number[]>();
+  const byDate = new Map<string, number[]>();
+  const add = (map: Map<string, number[]>, key: string, gi: number) => {
+    const list = map.get(key);
+    if (!list) map.set(key, [gi]);
+    else if (!list.includes(gi)) list.push(gi);
+  };
+
   for (const e of events) {
-    const group = groups.find((g) => g.some((x) => isSameEvent(x, e)));
-    if (group) group.push(e);
-    else groups.push([e]);
+    const keys = urlKeys(e);
+    const candidates = new Set<number>();
+    for (const k of keys) for (const gi of byUrl.get(k) ?? []) candidates.add(gi);
+    for (const gi of byDate.get(e.event_date ?? "undated") ?? []) candidates.add(gi);
+    let target = -1;
+    for (const gi of [...candidates].sort((a, b) => a - b)) {
+      if (groups[gi].some((x) => isSameEvent(x, e))) {
+        target = gi;
+        break;
+      }
+    }
+    if (target === -1) {
+      target = groups.length;
+      groups.push([e]);
+    } else groups[target].push(e);
+    for (const k of keys) add(byUrl, k, target);
+    add(byDate, e.event_date ?? "undated", target);
   }
+
   return groups.map((g) => {
     const sorted = [...g].sort((a, b) => richness(b) - richness(a) || a.event_url.localeCompare(b.event_url));
     return sorted.slice(1).reduce(mergeInto, sorted[0]);

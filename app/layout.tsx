@@ -31,10 +31,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${spaceGrotesk.variable} ${jetbrainsMono.variable} h-full antialiased`}>
       <body className="min-h-full bg-shell p-2 sm:p-4">
-        <div className="noise relative mx-auto flex min-h-[calc(100vh-2rem)] max-w-[1600px] flex-col overflow-hidden rounded-[2.5rem] bg-surface shadow-2xl ring-1 ring-white/10">
-          <div className="bg-grid pointer-events-none absolute inset-0 [mask-image:radial-gradient(ellipse_at_top,black_30%,transparent_75%)]" aria-hidden />
-          <div className="glow-sphere -left-40 -top-40 h-[480px] w-[480px] bg-lime/20" aria-hidden />
-          <div className="glow-sphere -right-32 top-[30rem] h-[380px] w-[380px] bg-emerald-glow/15" aria-hidden />
+        <div className="noise-bg relative mx-auto flex min-h-[calc(100vh-2rem)] max-w-[1600px] flex-col overflow-hidden rounded-[2.5rem] bg-surface shadow-2xl ring-1 ring-white/10">
+          <div className="bg-grid pointer-events-none absolute inset-x-0 top-0 h-[1100px] [mask-image:radial-gradient(ellipse_at_top,black_30%,transparent_75%)]" aria-hidden />
+          <div className="glow-sphere glow-lime -left-64 -top-64 h-[900px] w-[900px]" aria-hidden />
+          <div className="glow-sphere glow-emerald -right-56 top-[24rem] h-[760px] w-[760px]" aria-hidden />
 
           <header className="relative z-20 flex flex-wrap items-center justify-between gap-3 px-5 py-5 sm:px-8">
             <Link href="/" className="flex items-center gap-3">
