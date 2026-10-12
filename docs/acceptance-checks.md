@@ -11,7 +11,7 @@ Project acceptance checks from `CLAUDE.md` §11 (not an official MESA rubric). �
    - [x] ✅ Missing deadline shows “Deadline not listed — verify”; unknown date/location goes to *Needs verification* (`tests/filter.test.ts`).
 3. **Configurable preferences**
    - [x] ✅ Changing cities to Bengaluru-only in `/settings` changed the dashboard immediately (actionable 40 → 21 in the local run) — no code edit.
-   - [ ] ⏳ Persistence across deploys requires Supabase (otherwise in-memory, flagged in the UI).
+   - [x] ✅ Preferences, events, sources and run logs persist in Supabase (verified 12 Oct 2026).
 4. **Thirty-day filtering**
    - [x] ✅ Single rule in `lib/processing/filter.ts#windowCheck`; boundaries tested (now, now+30 d, +30 d+1 ms, past, date-only today / day 30 / day 31).
 5. **Gemini relevance ranking**
@@ -24,7 +24,7 @@ Project acceptance checks from `CLAUDE.md` §11 (not an official MESA rubric). �
 8. **Automated Monday email**
    - [x] ✅ Cron route rejects missing/wrong secret (401); runs the shared pipeline; second call in the same week returns `skipped` (idempotent run key).
    - [x] ✅ Without Resend/recipient the run is recorded as failed/not sent — never as sent.
-   - [ ] ⏳ Live send: configure Resend + recipient → `/digest` → *Send test email* → run history shows `sent` with a Resend id.
+   - [x] ✅ Test digest sent from production via Resend (id logged in run history); cron `30 2 * * 1` registered on Vercel.
 9. **Exam readiness and deployment**
    - [x] ✅ `npm run build`, `npm run lint`, `npm test` (46 tests) pass; Components Map in `docs/components-map.md`; product AI uses only Gemini (`@google/genai`), no Claude API; secrets are server-only (no `NEXT_PUBLIC_` secrets).
-   - [ ] ⏳ Push to GitHub, deploy on Vercel, open the public URL and record it in the README.
+   - [x] ✅ GitHub: https://github.com/samyak019/industry-event-scout · Vercel: https://industry-event-scout-beta.vercel.app (live refresh: all sources OK, 10/10 Gemini calls, ~49 s).

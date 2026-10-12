@@ -72,11 +72,11 @@ Statuses are kept honest: **Implemented** = code exists; **Tested** = verified l
 | Ranking + digest selection | `lib/processing/rank.ts` | Tested | `tests/ranking.test.ts` |
 | Gemini Flash assessment + grounded extraction | `lib/ai/gemini.ts`, `lib/ai/grounding.ts`, `lib/ai/schemas.ts` | Tested (live + unit) | 10 calls / 0 failures in a live run; `tests/gemini.test.ts`, `tests/grounding.test.ts` |
 | Rules-based fallback | `lib/processing/rules-score.ts` | Tested (live) | Labelled “rules” in UI/email when Gemini is unavailable |
-| Supabase persistence | `lib/store/index.ts`, `supabase/migrations/…_init.sql` | Implemented — needs project + migration | In-memory fallback (flagged in UI) verified locally |
+| Supabase persistence | `lib/store/index.ts`, `supabase/migrations/…_init.sql` | Deployed | Migration applied; events, `event_sources`, `digest_runs` written by production runs |
 | Email renderer + preview | `lib/email/render-digest.ts`, `app/digest/page.tsx` | Tested | `tests/digest.test.ts`; preview rendered locally |
-| Resend delivery | `lib/email/resend.ts` | Implemented — needs `RESEND_API_KEY` (+ verified domain for arbitrary recipients) | Without key: recorded as not sent, never as success |
+| Resend delivery | `lib/email/resend.ts` | Deployed | Test digest sent from production; Resend id stored. Other recipients need a verified domain |
 | Cron route + idempotency | `app/api/cron/weekly-digest/route.ts`, `lib/jobs.ts`, `vercel.json` | Tested (local) | 401 without/with wrong secret; 2nd call same week → `skipped` |
-| Vercel deployment | — | Planned — manual step | See README “Deploy” |
+| Vercel deployment + cron | `vercel.json` | Deployed | https://industry-event-scout-beta.vercel.app · cron `30 2 * * 1` registered |
 
 ## 4. Why it’s shaped this way
 
