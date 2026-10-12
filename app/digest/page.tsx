@@ -7,6 +7,7 @@ import { isAdmin } from "@/lib/auth";
 import { env, configStatus } from "@/lib/env";
 import { ActionButton } from "@/components/action-button";
 import { StatusChip, runChipStatus } from "@/components/source-status";
+import { PanelSkeleton } from "@/components/skeletons";
 
 async function Digest() {
   await connection();
@@ -105,7 +106,22 @@ async function Digest() {
 
 export default function Page() {
   return (
-    <Suspense fallback={<p className="mono-tag px-8 py-20 text-white/50">Rendering digest preview…</p>}>
+    <Suspense
+      fallback={
+        <div className="space-y-8 px-5 pb-20 pt-6 sm:px-8">
+          <div>
+            <p className="mono-tag flex items-center gap-2 text-lime">
+              <span className="pulse-dot" aria-hidden /> Mondays · 02:30 UTC ≈ 08:00 IST
+            </p>
+            <h1 className="display mt-3 text-5xl font-semibold leading-[0.9] text-white sm:text-7xl">
+              Weekly <em className="text-gradient-lime font-light">digest.</em>
+            </h1>
+            <p className="mono-tag mt-4 text-white/40">Rendering preview…</p>
+          </div>
+          <PanelSkeleton tall />
+        </div>
+      }
+    >
       <Digest />
     </Suspense>
   );

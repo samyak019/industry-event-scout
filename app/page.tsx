@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Suspense } from "react";
+import { Suspense, cache } from "react";
 import { connection } from "next/server";
 import { getStore } from "@/lib/store";
 import { loadCurrentEvents } from "@/lib/pipeline";
@@ -13,6 +13,7 @@ import { EventCard } from "@/components/event-card";
 import { EventFilters } from "@/components/event-filters";
 import { SourceStatus } from "@/components/source-status";
 import { ActionButton } from "@/components/action-button";
+import { BentoSkeleton, EventsSkeleton, HeroActionsSkeleton, HeroPanelSkeleton } from "@/components/skeletons";
 
 type SP = Promise<Record<string, string | string[] | undefined>>;
 
@@ -34,18 +35,117 @@ function applyFilters(events: ClassifiedEvent[], f: Record<string, string>) {
   });
 }
 
+/* ------------------------------------------------------------------ data */
+
+type DashboardData = {
+  prefs: Preferences;
+  all: ClassifiedEvent[];
+  actionable: ClassifiedEvent[];
+  runs: RunRecord[];
+  admin: boolean;
+  now: Date;
+  loadError: string | null;
+};
+
+/** One fetch per request, shared by every streamed section (React `cache`). */
+const getDashboardData = cache(async (): Promise<DashboardData> => {
+  await connection();
+  const store = getStore();
+  const now = new Date();
+  // Independent reads run in parallel; only the event list depends on preferences.
+  const adminPromise = isAdmin();
+  const runsPromise = store.listRuns(10).catch(() => [] as RunRecord[]);
+  let loadError: string | null = null;
+  let prefs: Preferences;
+  let all: ClassifiedEvent[] = [];
+  let runs: RunRecord[] = [];
+  try {
+    prefs = await store.getPreferences();
+    [all, runs] = await Promise.all([loadCurrentEvents(prefs, now), runsPromise]);
+  } catch (err) {
+    loadError = err instanceof Error ? err.message : "Could not load data";
+    prefs = (await import("@/lib/store/defaults")).defaultPreferences();
+  }
+  return { prefs, all, actionable: all.filter((e) => e.bucket === "actionable"), runs, admin: await adminPromise, now, loadError };
+});
+
 /* ------------------------------------------------------------------ hero */
 
-function Hero({ actionable, prefs, admin, now }: { actionable: ClassifiedEvent[]; prefs: Preferences; admin: boolean; now: Date }) {
-  const tz = prefs.timezone;
+async function HeroDateRange() {
+  const { prefs, now } = await getDashboardData();
   const { end } = windowBounds(now);
-  const fmt = new Intl.DateTimeFormat("en-IN", { timeZone: tz, day: "numeric", month: "short" });
+  const fmt = new Intl.DateTimeFormat("en-IN", { timeZone: prefs.timezone, day: "numeric", month: "short" });
+  return (
+    <>
+      {fmt.format(now)} → {fmt.format(end)}
+    </>
+  );
+}
+
+async function HeroActions() {
+  const { admin } = await getDashboardData();
+  return admin ? (
+    <ActionButton endpoint="/api/events/refresh" label="Refresh events" busyLabel="Scouting…" />
+  ) : (
+    <Link href="/login" className="btn-neon px-7 py-3.5 text-base">
+      Sign in to refresh
+    </Link>
+  );
+}
+
+async function HeroPanel() {
+  const { actionable, prefs } = await getDashboardData();
+  const tz = prefs.timezone;
   const top = actionable.slice(0, 2);
+  return (
+    <div className="glass-blur relative overflow-hidden rounded-[2.5rem] p-5 sm:p-6">
+      <div className="flex items-center justify-between">
+        <div className="flex gap-1.5" aria-hidden>
+          <span className="h-2.5 w-2.5 rounded-full bg-white/20" />
+          <span className="h-2.5 w-2.5 rounded-full bg-white/20" />
+          <span className="h-2.5 w-2.5 rounded-full bg-lime/80" />
+        </div>
+        <span className="mono-tag text-white/40">top_matches.live</span>
+      </div>
+      <div className="mt-6 space-y-4">
+        {top.length ? (
+          top.map((e, i) => (
+            <div key={e.dedupe_key} className={`glass rounded-[1.5rem] p-4 ${i === 0 ? "float-anim" : "float-anim-delay ml-6"}`}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="mono-tag text-white/40">{formatEventDate(e, tz)}</p>
+                  <p className="display mt-1 line-clamp-2 text-lg font-semibold leading-tight text-white">{e.title}</p>
+                  <p className="mt-1 text-xs text-white/50">{e.is_online ? "Online" : e.city ?? "Location not listed"}</p>
+                </div>
+                <span className={`display text-3xl font-semibold ${i === 0 ? "text-lime" : "text-white"}`}>{e.relevance_score ?? "—"}</span>
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="glass rounded-[1.5rem] p-6 text-sm text-white/60">No matching events yet — run a live refresh to scout the sources.</div>
+        )}
+      </div>
+      {top[0]?.match_reason ? (
+        <div className="float-anim-delay absolute bottom-5 right-5 max-w-[70%] rounded-2xl rounded-tr-sm bg-lime px-3 py-2 text-xs font-medium text-black shadow-[0_0_30px_rgba(204,255,0,0.3)]">
+          <span className="font-mono text-[9px] uppercase tracking-[0.2em]">▲ AI cursor</span>
+          <p className="line-clamp-2">{top[0].match_reason}</p>
+        </div>
+      ) : null}
+      <div className="h-16" aria-hidden />
+    </div>
+  );
+}
+
+/** Static copy renders instantly; only the data-driven parts stream in. */
+function Hero() {
   return (
     <section className="grid items-center gap-10 px-5 pb-12 pt-6 sm:px-8 lg:grid-cols-12 lg:pt-12">
       <div className="lg:col-span-7">
         <p className="mono-tag flex items-center gap-2 text-lime">
-          <span className="pulse-dot" aria-hidden /> AI-ranked · Gemini Flash · {fmt.format(now)} → {fmt.format(end)}
+          <span className="pulse-dot" aria-hidden /> AI-ranked · Gemini Flash ·{" "}
+          <Suspense fallback="next 30 days">
+            <HeroDateRange />
+          </Suspense>
         </p>
         <h1 className="display mt-6 text-[3.25rem] font-semibold leading-[0.85] text-white sm:text-7xl xl:text-[7.5rem]">
           Events worth <em className="text-gradient-lime pr-2 font-light">attending.</em>
@@ -54,55 +154,18 @@ function Hero({ actionable, prefs, admin, now }: { actionable: ClassifiedEvent[]
           Conferences, CXO summits, roundtables and founder meetups from live sources — ranked against your focus areas, with closing registration deadlines flagged before it&apos;s too late.
         </p>
         <div className="mt-8 flex flex-wrap items-center gap-4">
-          {admin ? (
-            <ActionButton endpoint="/api/events/refresh" label="Refresh events" busyLabel="Scouting…" />
-          ) : (
-            <Link href="/login" className="btn-neon px-7 py-3.5 text-base">
-              Sign in to refresh
-            </Link>
-          )}
+          <Suspense fallback={<HeroActionsSkeleton />}>
+            <HeroActions />
+          </Suspense>
           <Link href="/digest" className="rounded-full border border-white/20 px-6 py-3.5 text-sm font-semibold text-white transition-colors hover:border-lime/50">
             Preview digest
           </Link>
         </div>
       </div>
-
       <div className="relative lg:col-span-5">
-        <div className="glass-blur relative overflow-hidden rounded-[2.5rem] p-5 sm:p-6">
-          <div className="flex items-center justify-between">
-            <div className="flex gap-1.5" aria-hidden>
-              <span className="h-2.5 w-2.5 rounded-full bg-white/20" />
-              <span className="h-2.5 w-2.5 rounded-full bg-white/20" />
-              <span className="h-2.5 w-2.5 rounded-full bg-lime/80" />
-            </div>
-            <span className="mono-tag text-white/40">top_matches.live</span>
-          </div>
-          <div className="mt-6 space-y-4">
-            {top.length ? (
-              top.map((e, i) => (
-                <div key={e.dedupe_key} className={`glass rounded-[1.5rem] p-4 ${i === 0 ? "float-anim" : "float-anim-delay ml-6"}`}>
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="mono-tag text-white/40">{formatEventDate(e, tz)}</p>
-                      <p className="display mt-1 line-clamp-2 text-lg font-semibold leading-tight text-white">{e.title}</p>
-                      <p className="mt-1 text-xs text-white/50">{e.is_online ? "Online" : e.city ?? "Location not listed"}</p>
-                    </div>
-                    <span className={`display text-3xl font-semibold ${i === 0 ? "text-lime" : "text-white"}`}>{e.relevance_score ?? "—"}</span>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="glass rounded-[1.5rem] p-6 text-sm text-white/60">No matching events yet — run a live refresh to scout the sources.</div>
-            )}
-          </div>
-          {top[0]?.match_reason ? (
-            <div className="float-anim-delay absolute bottom-5 right-5 max-w-[70%] rounded-2xl rounded-tr-sm bg-lime px-3 py-2 text-xs font-medium text-black shadow-[0_0_30px_rgba(204,255,0,0.3)]">
-              <span className="font-mono text-[9px] uppercase tracking-[0.2em]">▲ AI cursor</span>
-              <p className="line-clamp-2">{top[0].match_reason}</p>
-            </div>
-          ) : null}
-          <div className="h-16" aria-hidden />
-        </div>
+        <Suspense fallback={<HeroPanelSkeleton />}>
+          <HeroPanel />
+        </Suspense>
       </div>
     </section>
   );
@@ -234,51 +297,18 @@ function Methodology() {
 
 /* ------------------------------------------------------------------ page */
 
-async function Dashboard({ searchParams }: { searchParams: SP }) {
-  await connection();
-  const sp = await searchParams;
-  const f: Record<string, string> = {};
-  for (const k of ["city", "domain", "urgency", "source", "view"]) {
-    const v = sp[k];
-    if (typeof v === "string" && v) f[k] = v;
-  }
+async function Overview() {
+  const { prefs, all, actionable, runs, now, loadError } = await getDashboardData();
   const store = getStore();
   const cfg = configStatus();
-  const now = new Date();
-
-  let loadError: string | null = null;
-  let prefs: Preferences;
-  let all: ClassifiedEvent[] = [];
-  let runs: RunRecord[] = [];
-  // Independent reads run in parallel; only the event list depends on preferences.
-  const adminPromise = isAdmin();
-  const runsPromise = store.listRuns(10).catch(() => [] as RunRecord[]);
-  try {
-    prefs = await store.getPreferences();
-    [all, runs] = await Promise.all([loadCurrentEvents(prefs, now), runsPromise]);
-  } catch (err) {
-    loadError = err instanceof Error ? err.message : "Could not load data";
-    prefs = (await import("@/lib/store/defaults")).defaultPreferences();
-  }
-  const admin = await adminPromise;
-  const tz = prefs.timezone;
-  const actionable = all.filter((e) => e.bucket === "actionable");
-  const view = VIEWS.find((v) => v.key === (f.view ?? "")) ?? VIEWS[0];
-  const inView = all.filter((e) => e.bucket === view.bucket);
-  const shown = applyFilters(inView, f);
   const lastDiscovery = runs.find((r) => r.trigger_type !== "test_email") ?? null;
-  const sources = [...new Set(all.flatMap((e) => e.sources.map((s) => s.source_name)))].sort();
-
   const notices = [
     loadError ? { tone: "error", text: loadError } : null,
     store.kind === "memory" ? { tone: "warn", text: "Supabase is not configured — results live in server memory only and are not persisted." } : null,
     !cfg.gemini ? { tone: "warn", text: "GEMINI_API_KEY is not set — relevance uses a labelled rules-based fallback and no AI summaries are generated." } : null,
   ].filter((n): n is { tone: string; text: string } => n !== null);
-
   return (
     <>
-      <Hero actionable={actionable} prefs={prefs} admin={admin} now={now} />
-
       {notices.length ? (
         <div className="space-y-2 px-5 pb-6 sm:px-8">
           {notices.map((n) => (
@@ -288,75 +318,98 @@ async function Dashboard({ searchParams }: { searchParams: SP }) {
           ))}
         </div>
       ) : null}
-
       <Bento all={all} actionable={actionable} prefs={prefs} lastRun={lastDiscovery} now={now} />
+    </>
+  );
+}
 
-      <section id="events" className="mt-16 grid gap-6 px-5 sm:px-8 xl:grid-cols-[1fr_360px]">
-        <div className="min-w-0 space-y-5">
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <h2 className="display text-3xl font-semibold text-white sm:text-4xl">Ranked events</h2>
-            <nav className="flex flex-wrap gap-1 rounded-full bg-white/5 p-1 ring-1 ring-white/10" aria-label="Event lists">
-              {VIEWS.map((v) => {
-                const n = all.filter((e) => e.bucket === v.bucket).length;
-                const active = v.key === view.key;
-                return (
-                  <Link
-                    key={v.key}
-                    href={v.key ? `/?view=${v.key}#events` : "/#events"}
-                    aria-current={active ? "page" : undefined}
-                    className={`rounded-full px-3 py-1.5 text-sm transition-colors ${active ? "bg-lime font-semibold text-black" : "text-white/60 hover:text-white"}`}
-                  >
-                    {v.label} <span className="font-mono text-[11px] opacity-60">{n}</span>
-                  </Link>
-                );
-              })}
-            </nav>
-          </div>
-          <EventFilters current={f} cities={prefs.cities} domains={prefs.domains} sources={sources} />
-          <p className="mono-tag text-white/40">
-            Showing {shown.length} of {inView.length} · {view.label}
-            {view.bucket === "needs_verification" ? " · date or location not established — check source" : ""}
-            {view.bucket === "excluded" ? " · removed by code rules" : ""}
-          </p>
-          {shown.length ? (
-            <div className="space-y-4">
-              {shown.map((e, i) => (
-                <EventCard key={e.dedupe_key} e={e} rank={view.bucket === "actionable" ? i + 1 : undefined} timeZone={tz} />
-              ))}
-            </div>
-          ) : (
-            <div className="glass rounded-[2rem] p-10 text-center text-white/60">
-              {all.length === 0
-                ? "No events stored yet. Run a live refresh to query the configured sources."
-                : "No events match these filters. Nothing is padded or invented — try another view or broaden your preferences."}
-            </div>
-          )}
+async function EventsSection({ searchParams }: { searchParams: SP }) {
+  const [{ prefs, all, runs }, sp] = await Promise.all([getDashboardData(), searchParams]);
+  const f: Record<string, string> = {};
+  for (const k of ["city", "domain", "urgency", "source", "view"]) {
+    const v = sp[k];
+    if (typeof v === "string" && v) f[k] = v;
+  }
+  const tz = prefs.timezone;
+  const view = VIEWS.find((v) => v.key === (f.view ?? "")) ?? VIEWS[0];
+  const inView = all.filter((e) => e.bucket === view.bucket);
+  const shown = applyFilters(inView, f);
+  const lastDiscovery = runs.find((r) => r.trigger_type !== "test_email") ?? null;
+  const sources = [...new Set(all.flatMap((e) => e.sources.map((s) => s.source_name)))].sort();
+
+  return (
+    <>
+      <div className="min-w-0 space-y-5">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <h2 className="display text-3xl font-semibold text-white sm:text-4xl">Ranked events</h2>
+          <nav className="flex flex-wrap gap-1 rounded-full bg-white/5 p-1 ring-1 ring-white/10" aria-label="Event lists">
+            {VIEWS.map((v) => {
+              const n = all.filter((e) => e.bucket === v.bucket).length;
+              const active = v.key === view.key;
+              return (
+                <Link
+                  key={v.key}
+                  href={v.key ? `/?view=${v.key}#events` : "/#events"}
+                  aria-current={active ? "page" : undefined}
+                  className={`rounded-full px-3 py-1.5 text-sm transition-colors ${active ? "bg-lime font-semibold text-black" : "text-white/60 hover:text-white"}`}
+                >
+                  {v.label} <span className="font-mono text-[11px] opacity-60">{n}</span>
+                </Link>
+              );
+            })}
+          </nav>
         </div>
-        <aside className="space-y-4 xl:sticky xl:top-6 xl:self-start">
-          <section className="glass rounded-[2rem] p-6">
-            <h2 className="mono-tag mb-4 text-white/50">Sources queried</h2>
-            <SourceStatus run={lastDiscovery} timeZone={tz} />
-          </section>
-          <section className="glass rounded-[2rem] p-6 text-sm">
-            <h2 className="mono-tag mb-4 text-white/50">Your filters</h2>
-            <dl className="space-y-2 text-white/70">
-              <div><dt className="mono-tag inline text-white/40">Cities </dt><dd className="inline">{prefs.cities.join(", ") || "—"}{prefs.allow_online_events ? " + online" : ""}</dd></div>
-              <div><dt className="mono-tag inline text-white/40">Formats </dt><dd className="inline">{prefs.categories.join(", ") || "Any"}</dd></div>
-              <div><dt className="mono-tag inline text-white/40">Min score </dt><dd className="inline">{prefs.min_relevance_score}</dd></div>
-            </dl>
-          </section>
-        </aside>
-      </section>
-
-      <Methodology />
+        <EventFilters current={f} cities={prefs.cities} domains={prefs.domains} sources={sources} />
+        <p className="mono-tag text-white/40">
+          Showing {shown.length} of {inView.length} · {view.label}
+          {view.bucket === "needs_verification" ? " · date or location not established — check source" : ""}
+          {view.bucket === "excluded" ? " · removed by code rules" : ""}
+        </p>
+        {shown.length ? (
+          <div className="space-y-4">
+            {shown.map((e, i) => (
+              <EventCard key={e.dedupe_key} e={e} rank={view.bucket === "actionable" ? i + 1 : undefined} timeZone={tz} />
+            ))}
+          </div>
+        ) : (
+          <div className="glass rounded-[2rem] p-10 text-center text-white/60">
+            {all.length === 0
+              ? "No events stored yet. Run a live refresh to query the configured sources."
+              : "No events match these filters. Nothing is padded or invented — try another view or broaden your preferences."}
+          </div>
+        )}
+      </div>
+      <aside className="space-y-4 xl:sticky xl:top-6 xl:self-start">
+        <section className="glass rounded-[2rem] p-6">
+          <h2 className="mono-tag mb-4 text-white/50">Sources queried</h2>
+          <SourceStatus run={lastDiscovery} timeZone={tz} />
+        </section>
+        <section className="glass rounded-[2rem] p-6 text-sm">
+          <h2 className="mono-tag mb-4 text-white/50">Your filters</h2>
+          <dl className="space-y-2 text-white/70">
+            <div><dt className="mono-tag inline text-white/40">Cities </dt><dd className="inline">{prefs.cities.join(", ") || "—"}{prefs.allow_online_events ? " + online" : ""}</dd></div>
+            <div><dt className="mono-tag inline text-white/40">Formats </dt><dd className="inline">{prefs.categories.join(", ") || "Any"}</dd></div>
+            <div><dt className="mono-tag inline text-white/40">Min score </dt><dd className="inline">{prefs.min_relevance_score}</dd></div>
+          </dl>
+        </section>
+      </aside>
     </>
   );
 }
 
 export default function Page({ searchParams }: { searchParams: SP }) {
   return (
-    <Suspense fallback={<p className="mono-tag px-8 py-20 text-white/50">Loading events…</p>}>
-      <Dashboard searchParams={searchParams} />
-    </Suspense>
+    <>
+      <Hero />
+      <Suspense fallback={<BentoSkeleton />}>
+        <Overview />
+      </Suspense>
+      <section id="events" className="mt-16 grid gap-6 px-5 sm:px-8 xl:grid-cols-[1fr_360px]">
+        <Suspense fallback={<EventsSkeleton />}>
+          <EventsSection searchParams={searchParams} />
+        </Suspense>
+      </section>
+      <Methodology />
+    </>
   );
 }

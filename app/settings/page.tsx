@@ -6,6 +6,7 @@ import { isAdmin } from "@/lib/auth";
 import { configStatus } from "@/lib/env";
 import { PreferenceForm } from "@/components/preference-form";
 import { StatusChip } from "@/components/source-status";
+import { PanelSkeleton } from "@/components/skeletons";
 
 async function Settings() {
   await connection();
@@ -21,11 +22,7 @@ async function Settings() {
     ["Eventbrite (optional)", cfg.eventbrite, "EVENTBRITE_API_TOKEN, EVENTBRITE_ORGANIZER_IDS"],
   ];
   return (
-    <div className="px-5 pb-20 pt-6 sm:px-8">
-      <p className="mono-tag text-lime">Configuration</p>
-      <h1 className="display mt-3 text-5xl font-semibold leading-[0.9] text-white sm:text-7xl">Preferences</h1>
-      <p className="mt-4 max-w-2xl text-white/60">These drive search queries, filtering, Gemini relevance scoring and the Monday digest. Defaults are illustrative examples only.</p>
-      <div className="mt-10 grid gap-6 lg:grid-cols-[1fr_320px]">
+    <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <section className="glass rounded-[2.5rem] p-6 sm:p-8">
           {!admin ? (
             <p className="mb-6 rounded-2xl border border-lime/30 bg-lime/5 p-4 text-sm text-white/80">
@@ -49,15 +46,28 @@ async function Settings() {
           </ul>
           <p className="mt-5 text-xs text-white/40">Public sources (Luma, AllEvents.in, RSS) need no key.</p>
         </aside>
-      </div>
     </div>
   );
 }
 
 export default function Page() {
   return (
-    <Suspense fallback={<p className="mono-tag px-8 py-20 text-white/50">Loading settings…</p>}>
-      <Settings />
-    </Suspense>
+    <div className="px-5 pb-20 pt-6 sm:px-8">
+      <p className="mono-tag text-lime">Configuration</p>
+      <h1 className="display mt-3 text-5xl font-semibold leading-[0.9] text-white sm:text-7xl">Preferences</h1>
+      <p className="mt-4 max-w-2xl text-white/60">These drive search queries, filtering, Gemini relevance scoring and the Monday digest. Defaults are illustrative examples only.</p>
+      <div className="mt-10">
+        <Suspense
+          fallback={
+            <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+              <PanelSkeleton rows={8} />
+              <PanelSkeleton rows={1} />
+            </div>
+          }
+        >
+          <Settings />
+        </Suspense>
+      </div>
+    </div>
   );
 }
