@@ -1,26 +1,191 @@
 @import "tailwindcss";
 
+/* Obsidian & Lime design system */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --shell: #000000;
+  --surface: #0c0c0c;
+  --obsidian: #0a0a0a;
+  --lime: #ccff00;
+  --emerald: #10b981;
+  --text: #ebebeb;
+  --contrast: #e5e5e5;
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-shell: var(--shell);
+  --color-surface: var(--surface);
+  --color-obsidian: var(--obsidian);
+  --color-lime: var(--lime);
+  --color-emerald-glow: var(--emerald);
+  --color-ink: var(--text);
+  --color-contrast: var(--contrast);
+  --font-sans: var(--font-space-grotesk);
+  --font-display: var(--font-space-grotesk);
+  --font-mono: var(--font-jetbrains-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  color-scheme: dark;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--shell);
+  color: var(--text);
+  font-family: var(--font-space-grotesk), sans-serif;
+}
+
+::selection {
+  background: var(--lime);
+  color: #000;
+}
+
+/* 60px grid backdrop */
+.bg-grid {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 60px 60px;
+}
+
+/* 15% opacity fractal noise overlay */
+.noise::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.15;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  border-radius: inherit;
+}
+
+.glass {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.glow-sphere {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(120px);
+  pointer-events: none;
+}
+
+.mono-tag {
+  font-family: var(--font-jetbrains-mono), monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-size: 10px;
+}
+
+.display {
+  font-family: var(--font-space-grotesk), sans-serif;
+  letter-spacing: -0.06em;
+}
+
+.text-gradient-lime {
+  background: linear-gradient(90deg, #ccff00 0%, #ffffff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+.float-anim {
+  animation: float 6s ease-in-out infinite;
+}
+.float-anim-delay {
+  animation: float 6s ease-in-out 1.5s infinite;
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(204, 255, 0, 0.6);
+  }
+  50% {
+    opacity: 0.6;
+    box-shadow: 0 0 0 6px rgba(204, 255, 0, 0);
+  }
+}
+.pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--lime);
+  animation: pulse-dot 2s infinite;
+}
+
+.btn-neon {
+  background: var(--lime);
+  color: #000;
+  font-weight: 700;
+  border-radius: 9999px;
+  box-shadow: 0 0 30px rgba(204, 255, 0, 0.3);
+  transition: transform 0.3s var(--ease), box-shadow 0.3s var(--ease);
+}
+.btn-neon:hover:not(:disabled) {
+  transform: scale(1.05);
+  box-shadow: 0 0 40px rgba(204, 255, 0, 0.45);
+}
+.btn-neon:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+/* Oversized CTA with slide-up white fill */
+.btn-slide {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+.btn-slide::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  transform: translateY(101%);
+  transition: transform 0.4s var(--ease);
+  z-index: -1;
+}
+.btn-slide:hover::before {
+  transform: translateY(0);
+}
+
+.field {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1rem;
+  color: var(--text);
+  transition: border-color 0.2s var(--ease);
+}
+.field:focus {
+  outline: none;
+  border-color: rgba(204, 255, 0, 0.6);
+}
+.field:disabled {
+  opacity: 0.5;
+}
+select.field option {
+  background: #0c0c0c;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .float-anim,
+  .float-anim-delay,
+  .pulse-dot {
+    animation: none;
+  }
 }
