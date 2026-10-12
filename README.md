@@ -8,7 +8,7 @@ AI-ranked weekly digest of professional events (conferences, CXO summits, roundt
 - **Design:** “Obsidian & Lime” glassmorphism — Space Grotesk + JetBrains Mono, #ccff00 accent, floating rounded shell, bento overview, 60 px grid + noise texture. All hero/bento content is computed from real events (no placeholder data).
 - **Docs:** [Components Map](docs/components-map.md) · [Acceptance checks](docs/acceptance-checks.md) · [Product brief](CLAUDE.md)
 
-> Public URL: _add after deployment_ · Repository: _add after pushing to GitHub_
+> Public URL: _add after deployment_ · Repository: https://github.com/samyak019/industry-event-scout
 
 ## Pages
 
